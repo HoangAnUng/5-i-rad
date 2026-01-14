@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fem i rad — Gomoku</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Fem i rad (Gomoku)</h1>
+    <div class="meta">
+      <label for="ai-level">Difficulty:</label>
+      <select id="ai-level">
+        <option value="none">Ingen (2 spelare)</option>
+        <option value="easy">Easy</option>
+        <option value="medium">Medium</option>
+        <option value="hard" selected>Hard</option>
+      </select>
+
+      <button id="new-game">Nytt spel</button>
+      <button id="save-game">Spara</button>
+      <button id="load-game">Ladda</button>
+      <span id="status" class="status">Svart börjar</span>
+    </div>
+  </header>
+
+  <main>
+    <div id="board" class="board" aria-label="Spelbräde"></div>
+  </main>
+
+  <footer>
+    <p>Instruktion: Klicka för att placera sten. Målet är 5 i rad.</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
