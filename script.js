@@ -1,164 +1,213 @@
-const SIZE = 15; // 15x15 board
-const boardEl = document.getElementById('board'); // Board container
-const statusEl = document.getElementById('status'); // Status text
-const aiSelect = document.getElementById('ai-level'); // AI difficulty select
-const newBtn = document.getElementById('new-game'); // New game button
-const saveBtn = document.getElementById('save-game'); // Save game button
-const loadBtn = document.getElementById('load-game'); // Load game button
+const SIZE = 15;
+const boardEl = document.getElementById('board');
+const statusEl = document.getElementById('status');
+const aiSelect = document.getElementById('ai-level');
+const newBtn = document.getElementById('new-game');
 
-// 0 empty, 1 black (human), 2 white (AI)
-let board = []; 
-let current = 1; 
-let gameOver = false; // Game over flag
 
-// Scoring constants for evaluating moves
-// These values represent the importance of different patterns in the game
+// 👇 POPUP
+const winnerPopup = document.getElementById('winner-popup');
+const winnerMessage = document.getElementById('winner-message');
+const winnerClose = document.getElementById('winner-close');
+
+let board = [];
+let current = 1;
+let gameOver = false;
+let winningCells = [];
+
+// 0 = tom, 1 = svart, 2 = vit
 const SCORE = {
-  FIVE: 100000,       // Five in a row (winning condition)
-  OPEN_FOUR: 5000,   // Four in a row with both ends open
-  FOUR: 2000,         // Four in a row with one end blocked
-  OPEN_THREE: 1500,    // Three in a row with both ends open
-  THREE: 150,         // Three in a row with one end blocked
-  TWO: 30            // Two in a row
+  FIVE: 1000000,
+  OPEN_FOUR: 100000,
+  FOUR: 15000,
+  OPEN_THREE: 8000,
+  THREE: 1200,
+  OPEN_TWO: 300,
+  TWO: 80,
+  CENTER: 12
 };
 
-// ---------------- Start Game ----------------
 init();
+
 function init() {
-  board = Array.from({ length: SIZE }, () => Array(SIZE).fill(0)); // Create Board
-  current = 1; // Black always starts
-  gameOver = false; // Reset game state
-  statusEl.textContent = 'Svart börjar'; 
+  board = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+  current = 1;
+  gameOver = false;
+  winningCells = [];
+  statusEl.textContent = 'Svart börjar';
+
+  hideWinnerPopup(); // 👈 reset popup
+
   renderBoard();
 }
 
-
 function renderBoard() {
-  boardEl.innerHTML = ''; // Clear previous board
+  boardEl.innerHTML = '';
+
   for (let r = 0; r < SIZE; r++) {
     for (let c = 0; c < SIZE; c++) {
-      const cell = document.createElement('div'); // Create clickable cell
+      const cell = document.createElement('div');
       cell.className = 'cell';
       cell.dataset.r = r;
       cell.dataset.c = c;
       cell.onclick = onCellClick;
+
       if (board[r][c]) {
-        const s = document.createElement('div');
-        s.className = 'stone ' + (board[r][c] === 1 ? 'black' : 'white');
-        cell.appendChild(s);
+        const piece = document.createElement('div');
+        piece.className = 'stone ' + (board[r][c] === 1 ? 'black' : 'white');
+
+        if (winningCells.some(pos => pos.r === r && pos.c === c)) {
+          piece.classList.add('win');
+        }
+
+        cell.appendChild(piece);
       }
+
       boardEl.appendChild(cell);
     }
   }
 }
 
 function onCellClick(e) {
-  if (gameOver) return; // Ignore clicks if game over
+  if (gameOver) return;
+  if (current !== 1 && aiSelect.value !== 'none') return;
+
   const r = +e.currentTarget.dataset.r;
   const c = +e.currentTarget.dataset.c;
+
   if (board[r][c] !== 0) return;
 
   playMove(r, c, current);
-  if (checkWin(r, c, current)) { // Check if next move wins (both white and black)
-    return endGame(current === 1 ? 'Svart vinner!' : 'Vit vinner!'); // Check white or black win
+
+  const winLine = getWinningLine(r, c, current);
+  if (winLine) {
+    winningCells = winLine;
+    renderBoard();
+    return endGame(current === 1 ? 'Svart vinner!' : 'Vit vinner!');
   }
 
-  // SWITCH TURN
-  current = current === 1 ? 2 : 1; // Switch player
+  current = current === 1 ? 2 : 1;
 
-  // 2-PLAYER MODE (NO AI)
   if (aiSelect.value === 'none') {
     statusEl.textContent = current === 1 ? 'Svarts tur' : 'Vits tur';
     return;
   }
 
-  // AI MODE
-  if (current === 2) { 
-    statusEl.textContent = 'Vits tur'; // AI turn
-    setTimeout(aiMove, 30); // AI move delay
+  if (current === 2) {
+    statusEl.textContent = 'Vits tur...';
+    setTimeout(aiMove, 80);
   } else {
-    statusEl.textContent = 'Svarts tur'; // Human turn
+    statusEl.textContent = 'Svarts tur';
   }
 }
 
-
-function playMove(r, c, p) { // Place stone on board and update UI
-  board[r][c] = p; // Update board state
-  const idx = r * SIZE + c; // Calculate index in boardEl
-  const stone = document.createElement('div'); // Create stone element
-  stone.className = 'stone ' + (p === 1 ? 'black' : 'white');// Set stone color
-  boardEl.children[idx].appendChild(stone); // Add stone to cell
+function playMove(r, c, p) {
+  board[r][c] = p;
+  const idx = r * SIZE + c;
+  const piece = document.createElement('div');
+  piece.className = 'stone ' + (p === 1 ? 'black' : 'white');
+  boardEl.children[idx].appendChild(piece);
 }
-// ---------------- END GAME ----------------
+
+// 👇 MODIFIERAD
 function endGame(text) {
-  gameOver = true; // Lock board state
-  statusEl.textContent = text; // Display result
+  gameOver = true;
+  statusEl.textContent = text;
+  showWinnerPopup(text); // 👈 popup visas här
+}
+
+// 👇 POPUP FUNKTIONER
+function showWinnerPopup(text) {
+  winnerMessage.textContent = text;
+  winnerPopup.classList.remove('hidden');
+}
+
+function hideWinnerPopup() {
+  winnerPopup.classList.add('hidden');
 }
 
 function inBounds(r, c) {
   return r >= 0 && r < SIZE && c >= 0 && c < SIZE;
 }
 
-// ---------------- WIN CHECK ----------------
-function checkWin(r, c, p) {
-  const dirs = [[1,0],[0,1],[1,1],[1,-1]]; // Directions: vertical, horizontal, diag1, diag2
+function getWinningLine(r, c, p) {
+  const dirs = [[1,0],[0,1],[1,1],[1,-1]];
+
   for (const [dr, dc] of dirs) {
-    let count = 1;
+    const line = [{ r, c }];
+
     for (let i = 1; i < 5; i++) {
-      if (inBounds(r+dr*i, c+dc*i) && board[r+dr*i][c+dc*i] === p) count++;
+      const nr = r + dr * i;
+      const nc = c + dc * i;
+      if (inBounds(nr, nc) && board[nr][nc] === p) line.push({ r: nr, c: nc });
       else break;
     }
+
     for (let i = 1; i < 5; i++) {
-      if (inBounds(r-dr*i, c-dc*i) && board[r-dr*i][c-dc*i] === p) count++;
+      const nr = r - dr * i;
+      const nc = c - dc * i;
+      if (inBounds(nr, nc) && board[nr][nc] === p) line.unshift({ r: nr, c: nc });
       else break;
     }
-    if (count >= 5) return true;
+
+    if (line.length >= 5) return line.slice(0, 5);
   }
-  return false;
+
+  return null;
 }
 
-// ---------------- AI MOVE ----------------
+function checkWin(r, c, p) {
+  return !!getWinningLine(r, c, p);
+}
+
+// ---------------- AI ----------------
 function aiMove() {
   if (gameOver) return;
-  let move;
 
-  if (aiSelect.value === 'easy') {
-    move = Math.random() < 0.45 ? randomMove() : heuristicMove(2, 1);
-  } else if (aiSelect.value === 'medium') {
-    move = forcedMove(2) || heuristicMove(2, 2);
-  } else {
-    move = forcedMove(2) || minimaxRoot(2, 4);
-  }
+  let move = forcedMove(2) || bestHeuristicMove(2, 2);
 
   if (!move) move = randomMove();
 
   playMove(move.r, move.c, 2);
-  if (checkWin(move.r, move.c, 2)) return endGame('Vit vinner!');
+
+  const winLine = getWinningLine(move.r, move.c, 2);
+  if (winLine) {
+    winningCells = winLine;
+    renderBoard();
+    return endGame('Vit vinner!');
+  }
 
   current = 1;
   statusEl.textContent = 'Svarts tur';
 }
 
-// ---------------- CANDIDATES ----------------
-function getCandidates(radius) {
+function getCandidates(radius = 2) {
   const set = new Set();
-  for (let r = 0; r < SIZE; r++)
-    for (let c = 0; c < SIZE; c++)
-      if (board[r][c] !== 0)
-        for (let dr = -radius; dr <= radius; dr++)
+
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      if (board[r][c] !== 0) {
+        for (let dr = -radius; dr <= radius; dr++) {
           for (let dc = -radius; dc <= radius; dc++) {
-            const nr = r + dr, nc = c + dc;
-            if (inBounds(nr, nc) && board[nr][nc] === 0)
+            const nr = r + dr;
+            const nc = c + dc;
+            if (inBounds(nr, nc) && board[nr][nc] === 0) {
               set.add(nr + ',' + nc);
+            }
           }
+        }
+      }
+    }
+  }
+
   if (set.size === 0) return [{ r: 7, c: 7 }];
+
   return [...set].map(s => {
     const [r, c] = s.split(',').map(Number);
     return { r, c };
   });
 }
 
-// ---------------- PATTERN EVAL ----------------
 function evaluateMove(r, c, p) {
   let score = 0;
   const dirs = [[1,0],[0,1],[1,1],[1,-1]];
@@ -168,62 +217,66 @@ function evaluateMove(r, c, p) {
     let open = 0;
 
     let i = 1;
-    while (inBounds(r+dr*i, c+dc*i) && board[r+dr*i][c+dc*i] === p) { count++; i++; }
-    if (inBounds(r+dr*i, c+dc*i) && board[r+dr*i][c+dc*i] === 0) open++;
+    while (inBounds(r + dr * i, c + dc * i) && board[r + dr * i][c + dc * i] === p) {
+      count++;
+      i++;
+    }
+    if (inBounds(r + dr * i, c + dc * i) && board[r + dr * i][c + dc * i] === 0) open++;
 
     i = 1;
-    while (inBounds(r-dr*i, c-dc*i) && board[r-dr*i][c-dc*i] === p) { count++; i++; }
-    if (inBounds(r-dr*i, c-dc*i) && board[r-dr*i][c-dc*i] === 0) open++;
+    while (inBounds(r - dr * i, c - dc * i) && board[r - dr * i][c - dc * i] === p) {
+      count++;
+      i++;
+    }
+    if (inBounds(r - dr * i, c - dc * i) && board[r - dr * i][c - dc * i] === 0) open++;
 
     if (count >= 5) score += SCORE.FIVE;
     else if (count === 4 && open === 2) score += SCORE.OPEN_FOUR;
-    else if (count === 4) score += SCORE.FOUR;
     else if (count === 3 && open === 2) score += SCORE.OPEN_THREE;
-    else if (count === 3) score += SCORE.THREE;
-    else if (count === 2) score += SCORE.TWO;
   }
+
   return score;
 }
 
-function heuristicMove(p, radius) {
+function bestHeuristicMove(p, radius) {
   const o = p === 1 ? 2 : 1;
   let best = null;
   let bestScore = -Infinity;
 
   for (const { r, c } of getCandidates(radius)) {
     board[r][c] = p;
-    let score = evaluateMove(r, c, p);
+    const attack = evaluateMove(r, c, p);
     board[r][c] = 0;
 
     board[r][c] = o;
-    score += evaluateMove(r, c, o) * 0.9;
+    const defend = evaluateMove(r, c, o);
     board[r][c] = 0;
+
+    const score = attack + defend * 1.2;
 
     if (score > bestScore) {
       bestScore = score;
       best = { r, c };
     }
   }
+
   return best;
 }
 
-
-// ---------------- FORCED MOVES ----------------
 function forcedMove(p) {
   const o = p === 1 ? 2 : 1;
+  const moves = getCandidates(2);
 
-  //Win immediately
-  for (const m of getCandidates(2)) {
-    board[m.r][m.c] = p; 
-    if (checkWin(m.r, m.c, p)) { // Check if move wins
-      board[m.r][m.c] = 0; // Reset cell
-      return m; // Return winning move
+  for (const m of moves) {
+    board[m.r][m.c] = p;
+    if (checkWin(m.r, m.c, p)) {
+      board[m.r][m.c] = 0;
+      return m;
     }
-    board[m.r][m.c] = 0; // Reset cell
+    board[m.r][m.c] = 0;
   }
 
-  //Block opponent OPEN FOUR
-  for (const m of getCandidates(2)) {
+  for (const m of moves) {
     board[m.r][m.c] = o;
     if (checkWin(m.r, m.c, o)) {
       board[m.r][m.c] = 0;
@@ -232,110 +285,20 @@ function forcedMove(p) {
     board[m.r][m.c] = 0;
   }
 
-
-  //Block OPEN THREE (player gets 3 in a open row → Ai next move must block)
-  for (const m of getCandidates(2)) {
-    board[m.r][m.c] = o;
-    const threat = evaluateMove(m.r, m.c, o);
-    board[m.r][m.c] = 0;
-
-    if (threat >= SCORE.OPEN_THREE) {
-      return m;
-    }
-  }
-
   return null;
 }
 
-// ---------------- MINIMAX (FAST) ----------------
-function minimaxRoot(p, depth) {
-  let best = null;
-  let bestScore = -Infinity;
-  let alpha = -Infinity;
-  let beta = Infinity;
-
-  const moves = getCandidates(2).slice(0, 10);
-
-  for (const m of moves) {
-    board[m.r][m.c] = p;
-    const score = minimax(depth - 1, alpha, beta, false, p);
-    board[m.r][m.c] = 0;
-
-    if (score > bestScore) {
-      bestScore = score;
-      best = m;
-    }
-    alpha = Math.max(alpha, score);
-    if (alpha >= beta) break;
-  }
-  return best;
-}
-
-function minimax(depth, alpha, beta, isMax, p) {
-  if (depth === 0) return boardEvalFast(p);
-
-  const player = isMax ? p : (p === 1 ? 2 : 1);
-  const moves = getCandidates(2).slice(0, 8);
-
-  if (isMax) {
-    let maxEval = -Infinity;
-    for (const m of moves) {
-      board[m.r][m.c] = player;
-      const evalScore = minimax(depth - 1, alpha, beta, false, p);
-      board[m.r][m.c] = 0;
-      maxEval = Math.max(maxEval, evalScore);
-      alpha = Math.max(alpha, evalScore);
-      if (beta <= alpha) break;
-    }
-    return maxEval;
-  } else {
-    let minEval = Infinity;
-    for (const m of moves) {
-      board[m.r][m.c] = player;
-      const evalScore = minimax(depth - 1, alpha, beta, true, p);
-      board[m.r][m.c] = 0;
-      minEval = Math.min(minEval, evalScore);
-      beta = Math.min(beta, evalScore);
-      if (beta <= alpha) break;
-    }
-    return minEval;
-  }
-}
-
-function boardEvalFast(p) {
-  let score = 0;
-  for (const { r, c } of getCandidates(2)) {
-    board[r][c] = p;
-    score += evaluateMove(r, c, p);
-    board[r][c] = 0;
-  }
-  return score;
-}
-
-// ---------------- UTILS ----------------
 function randomMove() {
-  const e = [];
-  for (let r = 0; r < SIZE; r++)
-    for (let c = 0; c < SIZE; c++)
-      if (board[r][c] === 0) e.push({ r, c });
-  return e[Math.floor(Math.random() * e.length)];
+  const empty = [];
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      if (board[r][c] === 0) empty.push({ r, c });
+    }
+  }
+  return empty[Math.floor(Math.random() * empty.length)];
 }
 
-// ---------------- SAVE / LOAD ----------------
-saveBtn.onclick = () => {
-  localStorage.setItem('gomoku-save', JSON.stringify({ board, current, ai: aiSelect.value }));
-  statusEl.textContent = 'Spelet sparat';
-};
 
-loadBtn.onclick = () => {
-  const d = JSON.parse(localStorage.getItem('gomoku-save'));
-  if (!d) return;
-  board = d.board;
-  current = d.current;
-  aiSelect.value = d.ai;
-  gameOver = false;
-  renderBoard();
-  statusEl.textContent = 'Spelet laddat';
-};
 
 newBtn.onclick = init;
+winnerClose.onclick = hideWinnerPopup;

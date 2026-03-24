@@ -10,17 +10,16 @@
   <header>
     <h1>Fem i rad</h1>
     <div class="meta">
-      <label for="ai-level">Difficulty:</label>
+      <label for="ai-level">Svårighetsgrad:</label>
       <select id="ai-level">
         <option value="none">Ingen (2 spelare)</option>
-        <option value="easy">Easy</option>
-        <option value="medium">Medium</option>
-        <option value="hard" selected>Hard</option>
+        <option value="easy">Lätt</option>
+        <option value="medium">Medel</option>
+        <option value="hard" selected>Svår</option>
       </select>
 
       <button id="new-game">Nytt spel</button>
       <button id="save-game">Spara</button>
-      <button id="load-game">Ladda</button>
       <span id="status" class="status">Svart börjar</span>
     </div>
   </header>
@@ -30,8 +29,23 @@
   </main>
 
   <footer>
-    <p>Instruktion: Klicka för att placera sten. Målet är 5 i rad.</p>
+    <p>Instruktion: Klicka på en ruta för att placera en pjäs. Målet är att få 5 i rad.</p>
   </footer>
+
+  <div id="win-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2 id="win-title">Spelet är slut</h2>
+      <p id="win-text">Någon vann!</p>
+      <button id="play-again">Spela igen</button>
+    </div>
+  </div>
+
+  <div id="winner-popup" class="winner-popup hidden">
+  <div class="winner-box">
+    <p id="winner-message"></p>
+    <button id="winner-close">Stäng</button>
+  </div>
+</div>
 
   <script src="script.js"></script>
 </body>
