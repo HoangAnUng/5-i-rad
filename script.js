@@ -4,8 +4,7 @@ const statusEl = document.getElementById('status');
 const aiSelect = document.getElementById('ai-level');
 const newBtn = document.getElementById('new-game');
 
-
-// 👇 POPUP
+// POPUP
 const winnerPopup = document.getElementById('winner-popup');
 const winnerMessage = document.getElementById('winner-message');
 const winnerClose = document.getElementById('winner-close');
@@ -17,15 +16,22 @@ let winningCells = [];
 
 // 0 = tom, 1 = svart, 2 = vit
 const SCORE = {
-  FIVE: 1000000,
-  OPEN_FOUR: 100000,
-  FOUR: 15000,
-  OPEN_THREE: 8000,
-  THREE: 1200,
-  OPEN_TWO: 300,
-  TWO: 80,
-  CENTER: 12
+  FIVE: 10000000,
+  OPEN_FOUR: 250000,
+  FOUR: 50000,
+  OPEN_THREE: 12000,
+  THREE: 2500,
+  OPEN_TWO: 500,
+  TWO: 120,
+  CENTER: 16
 };
+
+const DIRECTIONS = [
+  [1, 0],
+  [0, 1],
+  [1, 1],
+  [1, -1]
+];
 
 init();
 
@@ -35,9 +41,7 @@ function init() {
   gameOver = false;
   winningCells = [];
   statusEl.textContent = 'Svart börjar';
-
-  hideWinnerPopup(); // 👈 reset popup
-
+  hideWinnerPopup();
   renderBoard();
 }
 
@@ -95,7 +99,7 @@ function onCellClick(e) {
 
   if (current === 2) {
     statusEl.textContent = 'Vits tur...';
-    setTimeout(aiMove, 80);
+    setTimeout(aiMove, 90);
   } else {
     statusEl.textContent = 'Svarts tur';
   }
@@ -109,14 +113,12 @@ function playMove(r, c, p) {
   boardEl.children[idx].appendChild(piece);
 }
 
-// 👇 MODIFIERAD
 function endGame(text) {
   gameOver = true;
   statusEl.textContent = text;
-  showWinnerPopup(text); // 👈 popup visas här
+  showWinnerPopup(text);
 }
 
-// 👇 POPUP FUNKTIONER
 function showWinnerPopup(text) {
   winnerMessage.textContent = text;
   winnerPopup.classList.remove('hidden');
@@ -131,9 +133,7 @@ function inBounds(r, c) {
 }
 
 function getWinningLine(r, c, p) {
-  const dirs = [[1,0],[0,1],[1,1],[1,-1]];
-
-  for (const [dr, dc] of dirs) {
+  for (const [dr, dc] of DIRECTIONS) {
     const line = [{ r, c }];
 
     for (let i = 1; i < 5; i++) {
@@ -160,13 +160,33 @@ function checkWin(r, c, p) {
   return !!getWinningLine(r, c, p);
 }
 
+function countStones() {
+  let total = 0;
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      if (board[r][c] !== 0) total++;
+    }
+  }
+  return total;
+}
+
 // ---------------- AI ----------------
 function aiMove() {
   if (gameOver) return;
 
-  let move = forcedMove(2) || bestHeuristicMove(2, 2);
+  const level = aiSelect.value;
+  let move = null;
+
+  if (level === 'easy') {
+    move = getEasyMove();
+  } else if (level === 'medium') {
+    move = getMediumMove();
+  } else {
+    move = getHardMove();
+  }
 
   if (!move) move = randomMove();
+  if (!move) return;
 
   playMove(move.r, move.c, 2);
 
@@ -179,6 +199,71 @@ function aiMove() {
 
   current = 1;
   statusEl.textContent = 'Svarts tur';
+}
+
+function getEasyMove() {
+  const winNow = winningMove(2, 2);
+  if (winNow) return winNow;
+
+  const candidates = rankCandidates(2, 1, 12, 1.0, 0.25);
+
+  if (candidates.length === 0) return randomMove();
+
+  const poolSize = Math.min(6, candidates.length);
+  return candidates[Math.floor(Math.random() * poolSize)].move;
+}
+
+function getMediumMove() {
+  const winNow = winningMove(2, 2);
+  if (winNow) return winNow;
+
+  const blockNow = winningMove(1, 2);
+  if (blockNow) return blockNow;
+
+  return bestHeuristicMove(2, 2, 16, 1.15, 1.05);
+}
+
+function getHardMove() {
+  const stones = countStones();
+
+  const winNow = winningMove(2, 2);
+  if (winNow) return winNow;
+
+  const blockNow = winningMove(1, 2);
+  if (blockNow) return blockNow;
+
+  // Mở đầu ưu tiên trung tâm và vùng có giá trị
+  if (stones <= 2) {
+    const opening = openingMove();
+    if (opening) return opening;
+  }
+
+  // Search sâu hơn ở hard
+  const depth = stones < 10 ? 3 : 2;
+  const width = stones < 10 ? 10 : 8;
+
+  const best = searchBestMove(2, depth, width);
+  if (best) return best;
+
+  return bestHeuristicMove(2, 2, 18, 1.25, 1.2);
+}
+
+function openingMove() {
+  const preferred = [
+    { r: 7, c: 7 },
+    { r: 7, c: 8 },
+    { r: 8, c: 7 },
+    { r: 7, c: 6 },
+    { r: 6, c: 7 },
+    { r: 8, c: 8 },
+    { r: 6, c: 6 }
+  ];
+
+  for (const move of preferred) {
+    if (board[move.r][move.c] === 0) return move;
+  }
+
+  return null;
 }
 
 function getCandidates(radius = 2) {
@@ -208,97 +293,325 @@ function getCandidates(radius = 2) {
   });
 }
 
-function evaluateMove(r, c, p) {
-  let score = 0;
-  const dirs = [[1,0],[0,1],[1,1],[1,-1]];
-
-  for (const [dr, dc] of dirs) {
-    let count = 1;
-    let open = 0;
-
-    let i = 1;
-    while (inBounds(r + dr * i, c + dc * i) && board[r + dr * i][c + dc * i] === p) {
-      count++;
-      i++;
-    }
-    if (inBounds(r + dr * i, c + dc * i) && board[r + dr * i][c + dc * i] === 0) open++;
-
-    i = 1;
-    while (inBounds(r - dr * i, c - dc * i) && board[r - dr * i][c - dc * i] === p) {
-      count++;
-      i++;
-    }
-    if (inBounds(r - dr * i, c - dc * i) && board[r - dr * i][c - dc * i] === 0) open++;
-
-    if (count >= 5) score += SCORE.FIVE;
-    else if (count === 4 && open === 2) score += SCORE.OPEN_FOUR;
-    else if (count === 3 && open === 2) score += SCORE.OPEN_THREE;
-  }
-
-  return score;
+function randomMove() {
+  const candidates = getCandidates(2);
+  if (!candidates.length) return null;
+  return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
-function bestHeuristicMove(p, radius) {
-  const o = p === 1 ? 2 : 1;
-  let best = null;
-  let bestScore = -Infinity;
+function winningMove(p, radius = 2) {
+  const moves = getCandidates(radius);
 
-  for (const { r, c } of getCandidates(radius)) {
-    board[r][c] = p;
-    const attack = evaluateMove(r, c, p);
-    board[r][c] = 0;
-
-    board[r][c] = o;
-    const defend = evaluateMove(r, c, o);
-    board[r][c] = 0;
-
-    const score = attack + defend * 1.2;
-
-    if (score > bestScore) {
-      bestScore = score;
-      best = { r, c };
-    }
-  }
-
-  return best;
-}
-
-function forcedMove(p) {
-  const o = p === 1 ? 2 : 1;
-  const moves = getCandidates(2);
-
-  for (const m of moves) {
-    board[m.r][m.c] = p;
-    if (checkWin(m.r, m.c, p)) {
-      board[m.r][m.c] = 0;
-      return m;
-    }
-    board[m.r][m.c] = 0;
-  }
-
-  for (const m of moves) {
-    board[m.r][m.c] = o;
-    if (checkWin(m.r, m.c, o)) {
-      board[m.r][m.c] = 0;
-      return m;
-    }
-    board[m.r][m.c] = 0;
+  for (const move of moves) {
+    board[move.r][move.c] = p;
+    const ok = checkWin(move.r, move.c, p);
+    board[move.r][move.c] = 0;
+    if (ok) return move;
   }
 
   return null;
 }
 
-function randomMove() {
-  const empty = [];
-  for (let r = 0; r < SIZE; r++) {
-    for (let c = 0; c < SIZE; c++) {
-      if (board[r][c] === 0) empty.push({ r, c });
-    }
-  }
-  return empty[Math.floor(Math.random() * empty.length)];
+function bestHeuristicMove(p, radius = 2, limit = 16, attackWeight = 1.2, defendWeight = 1.1) {
+  const ranked = rankCandidates(p, radius, limit, attackWeight, defendWeight);
+  return ranked.length ? ranked[0].move : null;
 }
 
+function rankCandidates(p, radius = 2, limit = 16, attackWeight = 1.2, defendWeight = 1.1) {
+  const o = p === 1 ? 2 : 1;
+  const candidates = getCandidates(radius);
+  const ranked = [];
 
+  for (const move of candidates) {
+    const attack = evaluatePlacedMove(move.r, move.c, p);
+    const defend = evaluatePlacedMove(move.r, move.c, o);
+    const center = centerBonus(move.r, move.c);
+
+    board[move.r][move.c] = p;
+    const myThreats = countImmediateWinsFor(p, 2);
+    board[move.r][move.c] = 0;
+
+    board[move.r][move.c] = o;
+    const oppThreats = countImmediateWinsFor(o, 2);
+    board[move.r][move.c] = 0;
+
+    let score =
+      attack * attackWeight +
+      defend * defendWeight +
+      center +
+      myThreats * 50000 +
+      oppThreats * 45000;
+
+    if (createsOpenFour(move.r, move.c, p)) score += 120000;
+    if (createsOpenThree(move.r, move.c, p)) score += 12000;
+    if (createsFork(move.r, move.c, p)) score += 90000;
+
+    ranked.push({ move, score });
+  }
+
+  ranked.sort((a, b) => b.score - a.score);
+  return ranked.slice(0, limit);
+}
+
+function searchBestMove(aiPlayer, depth, width) {
+  const ranked = rankCandidates(aiPlayer, 2, width, 1.3, 1.25);
+  if (!ranked.length) return null;
+
+  let bestMove = ranked[0].move;
+  let bestScore = -Infinity;
+
+  for (const item of ranked) {
+    const { r, c } = item.move;
+    board[r][c] = aiPlayer;
+
+    let score;
+    if (checkWin(r, c, aiPlayer)) {
+      score = SCORE.FIVE;
+    } else {
+      score = minimax(depth - 1, false, -Infinity, Infinity, width - 2, 1);
+    }
+
+    board[r][c] = 0;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMove = item.move;
+    }
+  }
+
+  return bestMove;
+}
+
+function minimax(depth, maximizing, alpha, beta, width, ply) {
+  const aiPlayer = 2;
+  const humanPlayer = 1;
+
+  if (depth <= 0) {
+    return evaluateBoard(aiPlayer) - evaluateBoard(humanPlayer);
+  }
+
+  const forcedAi = winningMove(aiPlayer, 2);
+  const forcedHuman = winningMove(humanPlayer, 2);
+
+  if (forcedAi) return SCORE.FIVE - ply * 1000;
+  if (forcedHuman) return -SCORE.FIVE + ply * 1000;
+
+  const player = maximizing ? aiPlayer : humanPlayer;
+  const ranked = rankCandidates(player, 2, Math.max(4, width), 1.25, 1.15);
+
+  if (!ranked.length) {
+    return evaluateBoard(aiPlayer) - evaluateBoard(humanPlayer);
+  }
+
+  if (maximizing) {
+    let best = -Infinity;
+
+    for (const item of ranked) {
+      const { r, c } = item.move;
+      board[r][c] = aiPlayer;
+
+      let value;
+      if (checkWin(r, c, aiPlayer)) {
+        value = SCORE.FIVE - ply * 1000;
+      } else {
+        value = minimax(depth - 1, false, alpha, beta, Math.max(4, width - 1), ply + 1);
+      }
+
+      board[r][c] = 0;
+      best = Math.max(best, value);
+      alpha = Math.max(alpha, best);
+      if (beta <= alpha) break;
+    }
+
+    return best;
+  } else {
+    let best = Infinity;
+
+    for (const item of ranked) {
+      const { r, c } = item.move;
+      board[r][c] = humanPlayer;
+
+      let value;
+      if (checkWin(r, c, humanPlayer)) {
+        value = -SCORE.FIVE + ply * 1000;
+      } else {
+        value = minimax(depth - 1, true, alpha, beta, Math.max(4, width - 1), ply + 1);
+      }
+
+      board[r][c] = 0;
+      best = Math.min(best, value);
+      beta = Math.min(beta, best);
+      if (beta <= alpha) break;
+    }
+
+    return best;
+  }
+}
+
+function evaluateBoard(p) {
+  let total = 0;
+  const candidates = getCandidates(2);
+
+  for (const move of candidates) {
+    total += evaluatePlacedMove(move.r, move.c, p) * 0.12;
+  }
+
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      if (board[r][c] === p) {
+        total += evaluateStonePosition(r, c, p);
+      }
+    }
+  }
+
+  return total;
+}
+
+function evaluateStonePosition(r, c, p) {
+  let score = centerBonus(r, c) * 0.4;
+
+  for (const [dr, dc] of DIRECTIONS) {
+    const pattern = analyzeDirection(r, c, p, dr, dc);
+    score += patternScore(pattern.count, pattern.openEnds);
+  }
+
+  return score;
+}
+
+function evaluatePlacedMove(r, c, p) {
+  if (board[r][c] !== 0) return -Infinity;
+
+  board[r][c] = p;
+  let score = 0;
+
+  for (const [dr, dc] of DIRECTIONS) {
+    const pattern = analyzeDirection(r, c, p, dr, dc);
+    score += patternScore(pattern.count, pattern.openEnds);
+
+    if (pattern.count >= 5) {
+      score += SCORE.FIVE;
+    }
+  }
+
+  if (createsFork(r, c, p)) score += 80000;
+  if (createsOpenFour(r, c, p)) score += 100000;
+  if (createsOpenThree(r, c, p)) score += 8000;
+
+  score += centerBonus(r, c);
+
+  board[r][c] = 0;
+  return score;
+}
+
+function analyzeDirection(r, c, p, dr, dc) {
+  let count = 1;
+  let openEnds = 0;
+
+  let i = 1;
+  while (inBounds(r + dr * i, c + dc * i) && board[r + dr * i][c + dc * i] === p) {
+    count++;
+    i++;
+  }
+  if (inBounds(r + dr * i, c + dc * i) && board[r + dr * i][c + dc * i] === 0) {
+    openEnds++;
+  }
+
+  i = 1;
+  while (inBounds(r - dr * i, c - dc * i) && board[r - dr * i][c - dc * i] === p) {
+    count++;
+    i++;
+  }
+  if (inBounds(r - dr * i, c - dc * i) && board[r - dr * i][c - dc * i] === 0) {
+    openEnds++;
+  }
+
+  return { count, openEnds };
+}
+
+function patternScore(count, openEnds) {
+  if (count >= 5) return SCORE.FIVE;
+  if (count === 4 && openEnds === 2) return SCORE.OPEN_FOUR;
+  if (count === 4 && openEnds === 1) return SCORE.FOUR;
+  if (count === 3 && openEnds === 2) return SCORE.OPEN_THREE;
+  if (count === 3 && openEnds === 1) return SCORE.THREE;
+  if (count === 2 && openEnds === 2) return SCORE.OPEN_TWO;
+  if (count === 2 && openEnds === 1) return SCORE.TWO;
+  return 0;
+}
+
+function centerBonus(r, c) {
+  const center = (SIZE - 1) / 2;
+  const dist = Math.abs(r - center) + Math.abs(c - center);
+  return Math.max(0, SCORE.CENTER - dist);
+}
+
+function countImmediateWinsFor(p, radius = 2) {
+  let count = 0;
+  const moves = getCandidates(radius);
+
+  for (const move of moves) {
+    board[move.r][move.c] = p;
+    const wins = checkWin(move.r, move.c, p);
+    board[move.r][move.c] = 0;
+    if (wins) count++;
+  }
+
+  return count;
+}
+
+function createsOpenFour(r, c, p) {
+  if (board[r][c] !== 0) return false;
+  board[r][c] = p;
+
+  let found = false;
+  for (const [dr, dc] of DIRECTIONS) {
+    const pattern = analyzeDirection(r, c, p, dr, dc);
+    if (pattern.count === 4 && pattern.openEnds === 2) {
+      found = true;
+      break;
+    }
+  }
+
+  board[r][c] = 0;
+  return found;
+}
+
+function createsOpenThree(r, c, p) {
+  if (board[r][c] !== 0) return false;
+  board[r][c] = p;
+
+  let found = false;
+  for (const [dr, dc] of DIRECTIONS) {
+    const pattern = analyzeDirection(r, c, p, dr, dc);
+    if (pattern.count === 3 && pattern.openEnds === 2) {
+      found = true;
+      break;
+    }
+  }
+
+  board[r][c] = 0;
+  return found;
+}
+
+function createsFork(r, c, p) {
+  if (board[r][c] !== 0) return false;
+  board[r][c] = p;
+
+  let strongThreats = 0;
+
+  for (const [dr, dc] of DIRECTIONS) {
+    const pattern = analyzeDirection(r, c, p, dr, dc);
+    if (
+      (pattern.count === 4 && pattern.openEnds >= 1) ||
+      (pattern.count === 3 && pattern.openEnds === 2)
+    ) {
+      strongThreats++;
+    }
+  }
+
+  board[r][c] = 0;
+  return strongThreats >= 2;
+}
 
 newBtn.onclick = init;
 winnerClose.onclick = hideWinnerPopup;
