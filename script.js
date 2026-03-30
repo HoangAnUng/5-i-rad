@@ -232,15 +232,15 @@ function getHardMove() {
   const blockNow = winningMove(1, 2);
   if (blockNow) return blockNow;
 
-  // Mở đầu ưu tiên trung tâm và vùng có giá trị
+  
   if (stones <= 2) {
     const opening = openingMove();
     if (opening) return opening;
   }
 
-  // Search sâu hơn ở hard
-  const depth = stones < 10 ? 3 : 2;
-  const width = stones < 10 ? 10 : 8;
+ 
+  const depth = stones < 10 ? 4 : 3;
+  const width = stones < 12 ? 12 : 8;
 
   const best = searchBestMove(2, depth, width);
   if (best) return best;
