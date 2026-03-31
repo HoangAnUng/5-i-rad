@@ -14,18 +14,6 @@ let current = 1;
 let gameOver = false;
 let winningCells = [];
 
-// 0 = tom, 1 = svart, 2 = vit
-const SCORE = {
-  FIVE: 10000000,
-  OPEN_FOUR: 250000,
-  FOUR: 50000,
-  OPEN_THREE: 12000,
-  THREE: 2500,
-  OPEN_TWO: 500,
-  TWO: 120,
-  CENTER: 16
-};
-
 const DIRECTIONS = [
   [1, 0],
   [0, 1],
