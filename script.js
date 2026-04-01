@@ -4,10 +4,11 @@ const statusEl = document.getElementById('status');
 const aiSelect = document.getElementById('ai-level');
 const newBtn = document.getElementById('new-game');
 
-// POPUP
+
 const winnerPopup = document.getElementById('winner-popup');
 const winnerMessage = document.getElementById('winner-message');
 const winnerClose = document.getElementById('winner-close');
+const winnerPlayAgain = document.getElementById('winner-play-again');
 
 let board = [];
 let current = 1;
@@ -227,8 +228,8 @@ function getHardMove() {
   }
 
  
-  const depth = stones < 10 ? 4 : 3;
-  const width = stones < 12 ? 12 : 8;
+  const depth = stones < 10 ? 3 : 2;
+  const width = stones < 10 ? 10 : 8;
 
   const best = searchBestMove(2, depth, width);
   if (best) return best;
@@ -602,4 +603,5 @@ function createsFork(r, c, p) {
 }
 
 newBtn.onclick = init;
+winnerPlayAgain.onclick = init;
 winnerClose.onclick = hideWinnerPopup;
