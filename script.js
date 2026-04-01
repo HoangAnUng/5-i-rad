@@ -239,8 +239,8 @@ function getHardMove() {
   }
 
  
-  const depth = stones < 10 ? 3 : 2;
-  const width = stones < 10 ? 10 : 8;
+  const depth = stones < 10 ? 4 : 3;
+  const width = stones < 12 ? 12 : 10;
 
   const best = searchBestMove(2, depth, width);
   if (best) return best;
