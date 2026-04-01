@@ -22,6 +22,17 @@ const DIRECTIONS = [
   [1, -1]
 ];
 
+const SCORE = {
+  FIVE: 1000000,
+  OPEN_FOUR: 100000,
+  FOUR: 20000,
+  OPEN_THREE: 8000,
+  THREE: 1500,
+  OPEN_TWO: 400,
+  TWO: 80,
+  CENTER: 10
+};
+
 init();
 
 function init() {
