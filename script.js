@@ -205,11 +205,14 @@ function getEasyMove() {
   const winNow = winningMove(2, 2);
   if (winNow) return winNow;
 
-  const candidates = rankCandidates(2, 1, 12, 1.0, 0.25);
+    const blockNow = winningMove(1, 2);
+    if (blockNow) return blockNow;
+
+  const candidates = rankCandidates(2, 1, 12, 1.0, 1.0);
 
   if (candidates.length === 0) return randomMove();
 
-  const poolSize = Math.min(6, candidates.length);
+  const poolSize = Math.min(3, candidates.length);
   return candidates[Math.floor(Math.random() * poolSize)].move;
 }
 
@@ -352,36 +355,6 @@ function rankCandidates(p, radius = 2, limit = 16, attackWeight = 1.2, defendWei
   ranked.sort((a, b) => b.score - a.score);
   return ranked.slice(0, limit);
 }
-
-function searchBestMove(aiPlayer, depth, width) {
-  const ranked = rankCandidates(aiPlayer, 2, width, 1.3, 1.25);
-  if (!ranked.length) return null;
-
-  let bestMove = ranked[0].move;
-  let bestScore = -Infinity;
-
-  for (const item of ranked) {
-    const { r, c } = item.move;
-    board[r][c] = aiPlayer;
-
-    let score;
-    if (checkWin(r, c, aiPlayer)) {
-      score = SCORE.FIVE;
-    } else {
-      score = minimax(depth - 1, false, -Infinity, Infinity, width - 2, 1);
-    }
-
-    board[r][c] = 0;
-
-    if (score > bestScore) {
-      bestScore = score;
-      bestMove = item.move;
-    }
-  }
-
-  return bestMove;
-}
-
 function minimax(depth, maximizing, alpha, beta, width, ply) {
   const aiPlayer = 2;
   const humanPlayer = 1;
@@ -446,6 +419,34 @@ function minimax(depth, maximizing, alpha, beta, width, ply) {
 
     return best;
   }
+}
+function searchBestMove(aiPlayer, depth, width) {
+  const ranked = rankCandidates(aiPlayer, 2, width, 1.3, 1.25);
+  if (!ranked.length) return null;
+
+  let bestMove = ranked[0].move;
+  let bestScore = -Infinity;
+
+  for (const item of ranked) {
+    const { r, c } = item.move;
+    board[r][c] = aiPlayer;
+
+    let score;
+    if (checkWin(r, c, aiPlayer)) {
+      score = SCORE.FIVE;
+    } else {
+      score = minimax(depth - 1, false, -Infinity, Infinity, width - 2, 1);
+    }
+
+    board[r][c] = 0;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMove = item.move;
+    }
+  }
+
+  return bestMove;
 }
 
 function evaluateBoard(p) {
