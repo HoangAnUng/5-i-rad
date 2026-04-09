@@ -170,9 +170,10 @@ function countStones() {
   return total;
 }
 
-// ---------------- AI ----------------
 function aiMove() {
   if (gameOver) return;
+
+  const start = performance.now();
 
   const level = aiSelect.value;
   let move = null;
@@ -184,6 +185,10 @@ function aiMove() {
   } else {
     move = getHardMove();
   }
+  
+  const end = performance.now(); // SLUT TID
+  const time = (end - start).toFixed(2);
+  console.log("Nivå:", level, "| Svarstid:", time, "ms");
 
   if (!move) move = randomMove();
   if (!move) return;
