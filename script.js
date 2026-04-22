@@ -26,11 +26,11 @@ const SCORE = {
   FIVE: 1000000,
   OPEN_FOUR: 100000,
   FOUR: 20000,
-  OPEN_THREE: 8000,
+  OPEN_THREE: 10000,
   THREE: 1500,
   OPEN_TWO: 400,
   TWO: 80,
-  CENTER: 10
+  CENTER: 50
 };
 
 init();
@@ -74,7 +74,7 @@ function renderBoard() {
 
 function onCellClick(e) {
   if (gameOver) return;
-  if (current !== 1 && aiSelect.value !== 'none') return;
+  if (current !== 1 && aiSelect.value !== 'none') return; // Förhindra klick när det är AI:s tur
 
   const r = +e.currentTarget.dataset.r;
   const c = +e.currentTarget.dataset.c;
@@ -99,7 +99,7 @@ function onCellClick(e) {
 
   if (current === 2) {
     statusEl.textContent = 'Vits tur...';
-    setTimeout(aiMove, 90);
+    setTimeout(aiMove, 30);
   } else {
     statusEl.textContent = 'Svarts tur';
   }
@@ -127,7 +127,7 @@ function showWinnerPopup(text) {
 function hideWinnerPopup() {
   winnerPopup.classList.add('hidden');
 }
-
+// Kontrollera om en position är inom brädets gränser
 function inBounds(r, c) {
   return r >= 0 && r < SIZE && c >= 0 && c < SIZE;
 }
@@ -186,7 +186,7 @@ function aiMove() {
     move = getHardMove();
   }
   
-  const end = performance.now(); // SLUT TID
+  const end = performance.now();
   const time = (end - start).toFixed(2);
   console.log("Nivå:", level, "| Svarstid:", time, "ms");
 
@@ -206,8 +206,9 @@ function aiMove() {
   statusEl.textContent = 'Svarts tur';
 }
 
+// Enkel AI: Försök vinna, blockera, annars välj bland de bästa kandidaterna
 function getEasyMove() {
-  const winNow = winningMove(2, 2);
+  const winNow = winningMove(2, 2);  
   if (winNow) return winNow;
 
     const blockNow = winningMove(1, 2);
@@ -220,7 +221,7 @@ function getEasyMove() {
   const poolSize = Math.min(3, candidates.length);
   return candidates[Math.floor(Math.random() * poolSize)].move;
 }
-
+// Medel AI: Försök vinna, blockera, väljer bästa draget enlig poäng funkttionen
 function getMediumMove() {
   const winNow = winningMove(2, 2);
   if (winNow) return winNow;
@@ -240,7 +241,7 @@ function getHardMove() {
   const blockNow = winningMove(1, 2);
   if (blockNow) return blockNow;
 
-  
+  // Första 2 dragen, spela i centrum eller nära centrum
   if (stones <= 2) {
     const opening = openingMove();
     if (opening) return opening;
@@ -274,8 +275,9 @@ function openingMove() {
   return null;
 }
 
+// Hitta alla tomma celler inom en viss radie från befintliga stenar
 function getCandidates(radius = 2) {
-  const set = new Set();
+  const set = new Set(); // Skapar en ny Set för att lagra unika värden (inga dubletter tillåts)
 
   for (let r = 0; r < SIZE; r++) {
     for (let c = 0; c < SIZE; c++) {
@@ -319,22 +321,25 @@ function winningMove(p, radius = 2) {
 
   return null;
 }
-
+// Heuristisk AI: Poängsätter alla kandidater och väljer den med högst poäng
 function bestHeuristicMove(p, radius = 2, limit = 16, attackWeight = 1.2, defendWeight = 1.1) {
   const ranked = rankCandidates(p, radius, limit, attackWeight, defendWeight);
   return ranked.length ? ranked[0].move : null;
 }
 
+// Rankar kandidater baserat på attack, försvar, centrumbonus och hotnivåer
 function rankCandidates(p, radius = 2, limit = 16, attackWeight = 1.2, defendWeight = 1.1) {
   const o = p === 1 ? 2 : 1;
   const candidates = getCandidates(radius);
   const ranked = [];
 
   for (const move of candidates) {
+    // Attackvärde: Hur bra är detta drag för mig?
     const attack = evaluatePlacedMove(move.r, move.c, p);
     const defend = evaluatePlacedMove(move.r, move.c, o);
     const center = centerBonus(move.r, move.c);
 
+    // Hotnivåer: Hur många omedelbara vin chanser skapar detta drag för oss och motspelaren?
     board[move.r][move.c] = p;
     const myThreats = countImmediateWinsFor(p, 2);
     board[move.r][move.c] = 0;
@@ -350,9 +355,6 @@ function rankCandidates(p, radius = 2, limit = 16, attackWeight = 1.2, defendWei
       myThreats * 50000 +
       oppThreats * 45000;
 
-    if (createsOpenFour(move.r, move.c, p)) score += 120000;
-    if (createsOpenThree(move.r, move.c, p)) score += 12000;
-    if (createsFork(move.r, move.c, p)) score += 90000;
 
     ranked.push({ move, score });
   }
@@ -360,6 +362,15 @@ function rankCandidates(p, radius = 2, limit = 16, attackWeight = 1.2, defendWei
   ranked.sort((a, b) => b.score - a.score);
   return ranked.slice(0, limit);
 }
+
+
+// Minimax med alpha-beta beskärning, begränsad till de mest lovande kandidaterna
+// depth: hur många drag framåt att analysera
+// maximizing: true om det är AI:s tur, false för motsspelarens tur
+// alpha: bästa poäng för maximeraren hittills
+// beta: sämsta poäng för minimeraren hittills
+// width: hur många kandidater att analysera
+// ply: antal drag som har spelats
 function minimax(depth, maximizing, alpha, beta, width, ply) {
   const aiPlayer = 2;
   const humanPlayer = 1;
@@ -368,9 +379,12 @@ function minimax(depth, maximizing, alpha, beta, width, ply) {
     return evaluateBoard(aiPlayer) - evaluateBoard(humanPlayer);
   }
 
+  // Kontrollera om det finns omedelbara vinande drag för AI eller motspelaren
   const forcedAi = winningMove(aiPlayer, 2);
   const forcedHuman = winningMove(humanPlayer, 2);
 
+
+// Om AI har en omedelbar vinst, returnera hög poäng. Om motspelaren har en omedelbar vinst, returnera låg poäng.
   if (forcedAi) return SCORE.FIVE - ply * 1000;
   if (forcedHuman) return -SCORE.FIVE + ply * 1000;
 
@@ -509,6 +523,7 @@ function evaluatePlacedMove(r, c, p) {
   return score;
 }
 
+// Analysera i en riktning (dr, dc) och räkna hur många i rad och öppna ändar 
 function analyzeDirection(r, c, p, dr, dc) {
   let count = 1;
   let openEnds = 0;
@@ -534,6 +549,7 @@ function analyzeDirection(r, c, p, dr, dc) {
   return { count, openEnds };
 }
 
+// Poängsätt mönstret baserat på antal i rad och öppna ändar
 function patternScore(count, openEnds) {
   if (count >= 5) return SCORE.FIVE;
   if (count === 4 && openEnds === 2) return SCORE.OPEN_FOUR;
@@ -545,6 +561,7 @@ function patternScore(count, openEnds) {
   return 0;
 }
 
+// Ge bonuspoäng för att spela nära centrum
 function centerBonus(r, c) {
   const center = (SIZE - 1) / 2;
   const dist = Math.abs(r - center) + Math.abs(c - center);
@@ -565,6 +582,7 @@ function countImmediateWinsFor(p, radius = 2) {
   return count;
 }
 
+// Kolla om detta drag skapar en öppen 4:a
 function createsOpenFour(r, c, p) {
   if (board[r][c] !== 0) return false;
   board[r][c] = p;
@@ -582,6 +600,7 @@ function createsOpenFour(r, c, p) {
   return found;
 }
 
+// Kolla om detta drag skapar en öppen trea (3 i rad med 2 öppna ändar)
 function createsOpenThree(r, c, p) {
   if (board[r][c] !== 0) return false;
   board[r][c] = p;
@@ -599,6 +618,7 @@ function createsOpenThree(r, c, p) {
   return found;
 }
 
+// Kolla om detta drag skapar en gaffel med minst 2 starka hot (4 i rad eller öppna 3:or)
 function createsFork(r, c, p) {
   if (board[r][c] !== 0) return false;
   board[r][c] = p;
